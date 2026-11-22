@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<!--
+ CSP Manager for Vvveb
+ Copyright (C) 2022  Ziadin Givan
+ Copyright (C) 2026  Ezyweb.uk
+ Licensed under the GNU Affero General Public License v3 or later, see the LICENSE file
+-->
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+  <meta name="description" content="">
+  <meta name="author" content="">
+  <link rel="icon" href="/favicon.ico">
+
+  <base href="">
+
+  <title>Vvveb - CSP Manager</title>
+
+  <link href="css/admin.css" rel="stylesheet">
+</head>
+
+<body>
+
+  <div id="container">
+
+    <aside class="sidebar" data-v-copy-from="index.html,.sidebar">
+    </aside>
+
+    <main class="main">
+
+      <header class="clearfix top-header" data-v-copy-from="index.html,.top-header">
+      </header>
+
+      <form id="csp-manager-settings-form" action="" method="post" class="settings">
+        <input type="hidden" name="action" id="action" value="save">
+        <input type="hidden" name="csrf" data-v-csrf>
+        <header class="actions">
+          <div class="title">
+            <h4 class="text-muted mt-2">
+              <img src="/plugins/csp-manager/csp-manager.svg" height="24" alt="" style="vertical-align: -4px; margin-right: 4px;">
+              CSP Manager Settings
+            </h4>
+          </div>
+          <div class="btns">
+            <a href="{$this.adminPath}index.php?module=plugin/plugins" title="Plugins list"
+                class="btn btn-icon btn-outline-secondary me-2">
+                <svg class="svg-icon" aria-hidden="true"><use href="/admin/default/img/icons.svg#arrow-left"></use></svg> <span>Plugins list</span>
+            </a>
+            <button type="submit" class="btn btn-primary btn-icon ms-1" title="Save settings">
+              <svg class="svg-icon" aria-hidden="true"><use href="/admin/default/img/icons.svg#pencil"></use></svg> <span>Save settings</span>
+            </button>
+          </div>
+        </header>
+        <div>
+          <div id="main-content">
+
+            <div class="notifications" data-v-notifications data-v-copy-from="index.html,.notifications"></div>
+
+            <div class="content clearfix px-4 row">
+
+              <p class="text-muted">
+                Sets one Content-Security-Policy header per page, merged with
+                whatever any other plugin (e.g. a payment gateway plugin) has
+                already queued for that same request. Exactly one profile
+                applies per request: the "Checkout policy" below for any
+                route listed in "Checkout routes", the "Default policy" for
+                everything else.
+              </p>
+
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">Mode</label>
+                <div class="col-sm-10">
+                  <select class="form-select" id="mode" name="mode">
+                    <option value="report-only">Report-only (recommended to start)</option>
+                    <option value="enforce">Enforce</option>
+                  </select>
+                  <div class="form-text">
+                    Report-only sends <code>Content-Security-Policy-Report-Only</code> —
+                    nothing is blocked, but violations are still logged to
+                    "Report URI" below, so you can see what WOULD be blocked
+                    before switching to Enforce.
+                  </div>
+                </div>
+              </div>
+
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">Report URI</label>
+                <div class="col-sm-10">
+                  <input class="form-control" type="text" id="report_uri" name="report_uri">
+                  <div class="form-text">
+                    Where the browser sends violation reports. Leave as
+                    <code>/csp-manager-report</code> (this plugin's own
+                    endpoint, logged via error_log()) unless you have your
+                    own collector.
+                  </div>
+                </div>
+              </div>
+
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">Checkout routes</label>
+                <div class="col-sm-10">
+                  <textarea class="form-control" id="checkout_routes" name="checkout_routes" rows="2"></textarea>
+                  <div class="form-text">
+                    Space- or comma-separated route "module" values (as
+                    Routes::getUrlData()['module'] reports them) that get the
+                    strict Checkout policy below. Everything else gets the
+                    Default policy.
+                  </div>
+                </div>
+              </div>
+
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">Strip known theme onclick handlers</label>
+                <div class="col-sm-10">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="strip_inline_handlers" name="strip_inline_handlers" value="1">
+                    <label class="form-check-label" for="strip_inline_handlers">Enabled</label>
+                  </div>
+                  <div class="form-text">
+                    Rewrites a handful of known onclick="..." attributes the
+                    storefront theme ships (password show/hide, login/guest
+                    toggle, shipping-address toggle) out of every storefront
+                    page's final HTML, so they stop tripping the
+                    script-src-attr CSP directive. Works even for markup
+                    copied in via a page's data-v-copy-from/
+                    data-v-save-global (e.g. the shared header), since it
+                    runs on the fully-resolved HTML, not any one template
+                    file. Only turn this on if your theme has its own click
+                    listeners for these controls (in an external script
+                    file): it removes the
+                    onclick attributes, so on the stock Landing theme the
+                    password eye, login/register and shipping-address
+                    toggles stop working. Off by default. The PayPal Smart
+                    Buttons plugin's checkout script keeps the Landing
+                    checkout working when its inline code is blocked.
+                  </div>
+                </div>
+              </div>
+
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">Strip Cookie Notice on checkout</label>
+                <div class="col-sm-10">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="strip_checkout_cookie_notice" name="strip_checkout_cookie_notice" value="1">
+                    <label class="form-check-label" for="strip_checkout_cookie_notice">Enabled</label>
+                  </div>
+                  <div class="form-text">
+                    Belt-and-braces: removes the Cookie Notice plugin's
+                    #cookie-notice banner, its scripts and style
+                    (#cookie-notice-js, #cookie-notice-config,
+                    #cookie-notice-consent-default, #cookie-notice-style)
+                    and the #cookie-notice-revisit button (Vvveb 1.0.9.0
+                    plugin) from the checkout page's final HTML, in
+                    addition to (not
+                    instead of) that plugin's own checkout-skip fix.
+                    Protects you if that plugin is ever reverted, not
+                    updated, or replaced with a different cookie-consent
+                    plugin that doesn't skip checkout itself. Only touches
+                    routes listed in "Checkout routes" above, and only
+                    recognizes that specific plugin's element ids.
+                  </div>
+                </div>
+              </div>
+
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">Strip Flag Counter on checkout</label>
+                <div class="col-sm-10">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="strip_checkout_flagcounter" name="strip_checkout_flagcounter" value="1">
+                    <label class="form-check-label" for="strip_checkout_flagcounter">Enabled</label>
+                  </div>
+                  <div class="form-text">
+                    Removes the flagcounter.com visitor-counter widget
+                    (the footer's div.visitors) from the checkout page's
+                    final HTML. Its remote image is blocked by the strict
+                    checkout img-src anyway, and PCI DSS SAQ A favours not
+                    loading third-party trackers on the payment page rather
+                    than allowlisting them. It still shows on every other
+                    page. Only touches routes listed in "Checkout routes".
+                  </div>
+                </div>
+              </div>
+
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">Notify email</label>
+                <div class="col-sm-10">
+                  <input class="form-control" type="text" id="notify_email" name="notify_email">
+                  <div class="form-text">
+                    Optional. A developer/admin address to email a summary
+                    of a CSP violation report to, in addition to the
+                    existing PHP error log entry. Leave blank to disable.
+                  </div>
+                </div>
+              </div>
+
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">Notify throttle (seconds)</label>
+                <div class="col-sm-10">
+                  <input class="form-control" type="text" id="notify_throttle_seconds" name="notify_throttle_seconds">
+                  <div class="form-text">
+                    At most one email is sent per this many seconds, however
+                    many reports actually arrive in that window — every
+                    individual report is still logged regardless.
+                  </div>
+                </div>
+              </div>
+
+              <hr class="my-4">
+
+              <h5>Checkout policy (strict)</h5>
+              <p class="text-muted">
+                Keep this minimal — payment gateway plugins add their own
+                required hosts and script nonces on top of this
+                automatically. Don't add general third-party hosts
+                (analytics, chat widgets) here; put those in the Default
+                policy instead.
+              </p>
+
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">default-src</label>
+                <div class="col-sm-10"><input class="form-control" type="text" id="checkout_default_src" name="checkout_default_src"></div>
+              </div>
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">script-src</label>
+                <div class="col-sm-10"><input class="form-control" type="text" id="checkout_script_src" name="checkout_script_src"></div>
+              </div>
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">style-src</label>
+                <div class="col-sm-10"><input class="form-control" type="text" id="checkout_style_src" name="checkout_style_src"></div>
+              </div>
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">img-src</label>
+                <div class="col-sm-10"><input class="form-control" type="text" id="checkout_img_src" name="checkout_img_src"></div>
+              </div>
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">font-src</label>
+                <div class="col-sm-10"><input class="form-control" type="text" id="checkout_font_src" name="checkout_font_src"></div>
+              </div>
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">frame-src</label>
+                <div class="col-sm-10"><input class="form-control" type="text" id="checkout_frame_src" name="checkout_frame_src"></div>
+              </div>
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">connect-src</label>
+                <div class="col-sm-10"><input class="form-control" type="text" id="checkout_connect_src" name="checkout_connect_src"></div>
+              </div>
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">base-uri</label>
+                <div class="col-sm-10"><input class="form-control" type="text" id="checkout_base_uri" name="checkout_base_uri"></div>
+              </div>
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">object-src</label>
+                <div class="col-sm-10"><input class="form-control" type="text" id="checkout_object_src" name="checkout_object_src"></div>
+              </div>
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">form-action</label>
+                <div class="col-sm-10"><input class="form-control" type="text" id="checkout_form_action" name="checkout_form_action"></div>
+              </div>
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">frame-ancestors</label>
+                <div class="col-sm-10"><input class="form-control" type="text" id="checkout_frame_ancestors" name="checkout_frame_ancestors"></div>
+              </div>
+
+              <hr class="my-4">
+
+              <h5>Default policy (rest of the site)</h5>
+
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">default-src</label>
+                <div class="col-sm-10"><input class="form-control" type="text" id="default_default_src" name="default_default_src"></div>
+              </div>
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">script-src</label>
+                <div class="col-sm-10"><input class="form-control" type="text" id="default_script_src" name="default_script_src"></div>
+              </div>
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">style-src</label>
+                <div class="col-sm-10"><input class="form-control" type="text" id="default_style_src" name="default_style_src"></div>
+              </div>
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">img-src</label>
+                <div class="col-sm-10"><input class="form-control" type="text" id="default_img_src" name="default_img_src"></div>
+              </div>
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">font-src</label>
+                <div class="col-sm-10"><input class="form-control" type="text" id="default_font_src" name="default_font_src"></div>
+              </div>
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">frame-src</label>
+                <div class="col-sm-10"><input class="form-control" type="text" id="default_frame_src" name="default_frame_src"></div>
+              </div>
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">connect-src</label>
+                <div class="col-sm-10"><input class="form-control" type="text" id="default_connect_src" name="default_connect_src"></div>
+              </div>
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">base-uri</label>
+                <div class="col-sm-10"><input class="form-control" type="text" id="default_base_uri" name="default_base_uri"></div>
+              </div>
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">object-src</label>
+                <div class="col-sm-10"><input class="form-control" type="text" id="default_object_src" name="default_object_src"></div>
+              </div>
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">form-action</label>
+                <div class="col-sm-10"><input class="form-control" type="text" id="default_form_action" name="default_form_action"></div>
+              </div>
+              <div class="row mb-3">
+                <label class="col-sm-2 col-form-label">frame-ancestors</label>
+                <div class="col-sm-10"><input class="form-control" type="text" id="default_frame_ancestors" name="default_frame_ancestors"></div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </form>
+
+    </main>
+  </div>
+
+  <script src="js/popper.min.js"></script>
+  <script src="js/bootstrap.min.js"></script>
+  <script id="admin-js" type="module" src="/js/admin.js"></script>
+  <script id="functions-js" src="/js/admin/functions.js"></script>
+
+</body>
+
+</html>
