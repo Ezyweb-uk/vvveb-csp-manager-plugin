@@ -138,7 +138,7 @@ class Csp {
 			'notify_throttle_seconds' => 300,
 			'strip_inline_handlers'   => '0',
 			'strip_checkout_cookie_notice' => '1',
-			'strip_checkout_flagcounter' => '1',
+			'checkout_remove'         => '',
 		];
 
 		//strict baseline for the checkout page — deliberately minimal;
@@ -585,43 +585,154 @@ class Csp {
 		return $html;
 	}
 
+	/** Tags a URL entry in "Remove from checkout" can match (by src or href). */
+	private const REMOVE_URL_TAGS = ['script', 'img', 'iframe', 'link', 'source', 'embed', 'object'];
+
+	/** Elements with no closing tag. */
+	private const VOID_TAGS = ['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr'];
+
 	/**
-	 * Strips the flagcounter.com visitor-counter widget from the checkout
-	 * page specifically. It loads a remote <img> from s01.flagcounter.com,
-	 * which a strict checkout img-src correctly blocks — confirmed live on
-	 * the user's own site (a blocked GET to
-	 * s01.flagcounter.com/count2/bTfc/...). Rather than allowlisting a
-	 * third-party tracking host under img-src for the one page PCI DSS
-	 * SAQ A asks to keep minimal, this simply doesn't render the widget
-	 * there — it still shows normally on every other page. Narrow/named,
-	 * same rationale as stripCheckoutOnlyWidgets() above: targets this
-	 * one widget's known wrapper class, not a generic "strip widgets" rule.
-	 *
-	 * Only ever called for a route isCurrentRouteCheckout() has already
-	 * confirmed (see plugin.php's gating), same as stripCheckoutOnlyWidgets().
-	 *
-	 * The wrapper (`<div class="col-md visitors">...</div>`) has no nested
-	 * <div> inside it in the shipped footer markup — just an <a><img></a> —
-	 * so, unlike stripCheckoutOnlyWidgets()'s #cookie-notice removal, a
-	 * plain non-greedy regex is safe here without needing
-	 * stripBalancedDivById()'s depth-counting. Keyed on the literal
-	 * "visitors" class token (not "col-md" alone, a plain Bootstrap grid
-	 * class that legitimately appears elsewhere on the page), limited to
-	 * one replacement in case of any future accidental duplication.
+	 * Parses the "Remove from checkout" setting: one entry per line.
+	 *   #some-id      the element with that id
+	 *   .some-class   every element with that class
+	 *   anything else part of a URL: every script, img, iframe, link, source,
+	 *                 embed or object tag whose src or href contains it
+	 * Returns [[type, value], ...] and puts unusable lines in $invalid.
 	 */
-	public static function stripCheckoutFlagcounter(string $html): string {
-		foreach (headers_list() as $header) {
-			if (stripos($header, 'Content-Type:') === 0 && stripos($header, 'text/html') === false) {
-				return $html;
+	public static function parseRemoveList(string $list, ?array &$invalid = null): array {
+		$entries = [];
+		$invalid = [];
+
+		foreach (preg_split('/\r\n|\r|\n/', $list) as $line) {
+			$line = trim($line);
+
+			if ($line === '') {
+				continue;
+			}
+
+			if (preg_match('/^#([A-Za-z][\w:-]*)$/', $line, $m)) {
+				$entries[] = ['id', $m[1]];
+			} else if (preg_match('/^\.(-?[A-Za-z_][\w-]*)$/', $line, $m)) {
+				$entries[] = ['class', $m[1]];
+			} else if (strlen($line) >= 4 && preg_match('#^[\w.~:/?=&%+@-]+$#', $line)) {
+				$entries[] = ['url', $line];
+			} else {
+				$invalid[] = $line;
 			}
 		}
 
-		return preg_replace(
-			'/<div[^>]*\bclass="[^"]*\bvisitors\b[^"]*"[^>]*>.*?<\/div>/is',
-			'',
-			$html,
-			1
-		) ?? $html;
+		return $entries;
+	}
+
+	/**
+	 * Removes the elements listed in the "Remove from checkout" setting
+	 * (see parseRemoveList()) from the checkout page's final HTML: theme
+	 * widgets and third-party scripts that have no place on the payment
+	 * page, rather than allowlisting their hosts in the strict checkout
+	 * policy. Only called for routes isCurrentRouteCheckout() confirmed
+	 * (see plugin.php). Elements are matched by their opening tag and
+	 * removed up to their own matching closing tag (nested elements of
+	 * the same name are counted); if no matching closing tag is found the
+	 * HTML is left unchanged for that entry.
+	 */
+	public static function stripCheckoutElements(string $html, string $list): string {
+		if (! self::isHtmlResponse()) {
+			return $html;
+		}
+
+		foreach (self::parseRemoveList($list) as [$type, $value]) {
+			$quoted = preg_quote($value, '/');
+
+			if ($type === 'id') {
+				$html = self::removeElements($html, '\bid\s*=\s*["\']' . $quoted . '["\']', 1);
+			} else if ($type === 'class') {
+				$html = self::removeElements($html, '\bclass\s*=\s*["\'](?:[^"\']*\s)?' . $quoted . '(?=[\s"\'])[^"\']*["\']', 100);
+			} else {
+				$html = self::removeElements($html, '\b(?:src|href|data)\s*=\s*["\'][^"\']*' . $quoted . '[^"\']*["\']', 100, self::REMOVE_URL_TAGS);
+			}
+		}
+
+		return $html;
+	}
+
+	/**
+	 * Removes up to $max elements whose opening tag has an attribute
+	 * matching $attrPattern (a regex fragment), optionally only for the
+	 * given tag names.
+	 */
+	private static function removeElements(string $html, string $attrPattern, int $max, ?array $tags = null): string {
+		$offset  = 0;
+		$removed = 0;
+
+		while ($removed < $max && preg_match('/<([a-zA-Z][\w-]*)\b(?=[^>]*' . $attrPattern . ')[^>]*>/is', $html, $m, PREG_OFFSET_CAPTURE, $offset)) {
+			$tag   = strtolower($m[1][0]);
+			$start = $m[0][1];
+			$end   = $start + strlen($m[0][0]);
+
+			if ($tags !== null && ! in_array($tag, $tags, true)) {
+				$offset = $end;
+
+				continue;
+			}
+
+			if (! in_array($tag, self::VOID_TAGS, true) && substr($m[0][0], -2) !== '/>') {
+				$close = self::findClosingTag($html, $tag, $end);
+
+				if ($close === null) {
+					return $html; //unbalanced: leave the page alone
+				}
+
+				$end = $close;
+			}
+
+			$html   = substr($html, 0, $start) . substr($html, $end);
+			$offset = $start;
+			$removed++;
+		}
+
+		return $html;
+	}
+
+	/**
+	 * Position just after the closing tag that matches an element opened
+	 * before $from, counting nested elements of the same name. Script and
+	 * style contents are raw text, so the first closing tag ends them.
+	 */
+	private static function findClosingTag(string $html, string $tag, int $from): ?int {
+		$quoted = preg_quote($tag, '/');
+
+		if (in_array($tag, ['script', 'style', 'textarea', 'title'], true)) {
+			return preg_match('/<\/' . $quoted . '\s*>/i', $html, $m, PREG_OFFSET_CAPTURE, $from)
+				? $m[0][1] + strlen($m[0][0])
+				: null;
+		}
+
+		$depth = 1;
+
+		while (preg_match('/<(\/?)' . $quoted . '\b[^>]*>/i', $html, $m, PREG_OFFSET_CAPTURE, $from)) {
+			$from = $m[0][1] + strlen($m[0][0]);
+
+			if ($m[1][0] === '/') {
+				if (--$depth === 0) {
+					return $from;
+				}
+			} else if (substr($m[0][0], -2) !== '/>') {
+				$depth++;
+			}
+		}
+
+		return null;
+	}
+
+	/** False when the response has a Content-Type that isn't HTML. */
+	private static function isHtmlResponse(): bool {
+		foreach (headers_list() as $header) {
+			if (stripos($header, 'Content-Type:') === 0 && stripos($header, 'text/html') === false) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	/**

@@ -150,26 +150,22 @@ class CspManager {
 		//rule has already run. Where the onclick originated (index.html, a
 		//copied-in global block, or a page's own markup) stops mattering.
 		//Same output-buffer mechanism, three independent, separately-
-		//toggleable transforms: known theme onclick="..." handlers
-		//(above), — belt-and-braces alongside the Cookie Notice
-		//plugin's own checkout-skip fix — that plugin's banner/script on
-		//the checkout page specifically, in case that plugin's own fix
-		//isn't installed/enabled, or a future/different cookie-consent
-		//plugin never learned to skip checkout at all, and the
-		//flagcounter.com visitor-counter widget on the checkout page
-		//(its remote <img> is correctly blocked by a strict checkout
-		//img-src, and PCI DSS SAQ A's minimisation principle says drop
-		//it there rather than allowlist a third-party tracking host).
-		//See Csp::stripCheckoutOnlyWidgets()'s /
-		//Csp::stripCheckoutFlagcounter()'s docblocks for why each is
-		//narrow/named rather than a generic "remove widgets" rule.
+		//configured transforms: known theme onclick="..." handlers
+		//(above); belt-and-braces alongside the Cookie Notice plugin's own
+		//checkout-skip fix, that plugin's banner/script on the checkout
+		//page, in case its own fix isn't installed/enabled; and the
+		//site's own "Remove from checkout" list (theme widgets and
+		//third-party scripts that would otherwise need allowlisting in
+		//the strict checkout policy, which PCI DSS SAQ A's minimisation
+		//principle says to drop from the payment page instead). See
+		//Csp::stripCheckoutOnlyWidgets() and Csp::stripCheckoutElements().
 		$settings          = Csp::settings();
 		$stripInline       = (bool) ($settings['strip_inline_handlers'] ?? false);
 		$stripCookieNotice = (bool) ($settings['strip_checkout_cookie_notice'] ?? true);
-		$stripFlagcounter  = (bool) ($settings['strip_checkout_flagcounter'] ?? true);
+		$checkoutRemove    = trim((string) ($settings['checkout_remove'] ?? ''));
 
-		if ($stripInline || $stripCookieNotice || $stripFlagcounter) {
-			ob_start(function ($html) use ($stripInline, $stripCookieNotice, $stripFlagcounter, $settings) {
+		if ($stripInline || $stripCookieNotice || $checkoutRemove !== '') {
+			ob_start(function ($html) use ($stripInline, $stripCookieNotice, $checkoutRemove, $settings) {
 				if ($stripInline) {
 					$html = Csp::stripKnownInlineHandlers($html);
 				}
@@ -179,8 +175,8 @@ class CspManager {
 						$html = Csp::stripCheckoutOnlyWidgets($html);
 					}
 
-					if ($stripFlagcounter) {
-						$html = Csp::stripCheckoutFlagcounter($html);
+					if ($checkoutRemove !== '') {
+						$html = Csp::stripCheckoutElements($html, $checkoutRemove);
 					}
 				}
 

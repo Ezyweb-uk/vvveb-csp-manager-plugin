@@ -16,8 +16,12 @@ payment plugin has already queued instead of overwriting it.
   hosts and per-request nonce) and adds the profile's sources to it.
 - **Violation reports:** built-in `/csp-manager-report` endpoint (written to the PHP error log), with optional
   email notification and a throttle so a busy page doesn't flood your inbox.
-- **Checkout clean-up:** optionally removes the Cookie Notice banner and the Flag Counter widget from the
-  checkout only, so third-party content doesn't need to be allowed on the payment page.
+- **Checkout clean-up:** "Remove from checkout" takes theme widgets and third-party scripts out of the
+  checkout page only, so their hosts don't need to be allowed in the strict policy (a payment page should
+  load as little third-party code as possible). One entry per line: `#some-id` (the element with that id),
+  `.some-class` (every element with that class, with its contents), or part of a URL such as a host name
+  (script, img, iframe, link, source, embed and object tags whose src or href contains it). A separate switch
+  removes Ezyweb's Cookie Notice banner and scripts from the checkout.
 - **Speculation Rules on the checkout:** Landing puts its link-prefetch rules in an inline
   `<script type="speculationrules">`, which a strict checkout policy blocks. CSP Manager sends them as a
   `Speculation-Rules` header instead, pointing to its own route `/csp-manager-speculation-rules`. The route
@@ -134,6 +138,8 @@ Manual install: copy the files to `plugins/csp-manager/`, then activate the plug
 
 - **0.4** (2026-11-22): "Strip known theme onclick handlers" is off by default for new installs (existing
   saved settings are kept), because it breaks the stock Landing theme's password eye and checkout toggles.
+  The "Strip Flag Counter on checkout" switch, which only knew one theme's widget, is replaced by the general
+  "Remove from checkout" list: if you used it, add that widget's wrapper class (or its host name) to the list.
   Speculation rules bundled with the plugin and served by its own route with the required MIME type (the
   header used to point at `/themes/landing/js/checkout-rules.json`, which stock Landing doesn't ship and which
   needed web server configuration for its type); a theme's own `js/checkout-rules.json` still takes

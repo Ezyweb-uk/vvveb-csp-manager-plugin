@@ -12,7 +12,7 @@ import(common.tpl)
 
 #strip_inline_handlers|addNewAttribute = <?php if ((string) ($this->strip_inline_handlers ?? '0') === '1') echo 'checked'; ?>
 #strip_checkout_cookie_notice|addNewAttribute = <?php if ((string) ($this->strip_checkout_cookie_notice ?? '1') === '1') echo 'checked'; ?>
-#strip_checkout_flagcounter|addNewAttribute = <?php if ((string) ($this->strip_checkout_flagcounter ?? '1') === '1') echo 'checked'; ?>
+#checkout_remove|innerText = <?php echo htmlspecialchars($this->checkout_remove ?? ''); ?>
 
 #notify_email|value = <?php echo htmlspecialchars($this->notify_email ?? ''); ?>
 #notify_throttle_seconds|value = <?php echo htmlspecialchars((string) ($this->notify_throttle_seconds ?? 300)); ?>

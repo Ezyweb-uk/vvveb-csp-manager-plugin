@@ -167,20 +167,22 @@
               </div>
 
               <div class="row mb-3">
-                <label class="col-sm-2 col-form-label">Strip Flag Counter on checkout</label>
+                <label class="col-sm-2 col-form-label" for="checkout_remove">Remove from checkout</label>
                 <div class="col-sm-10">
-                  <div class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" id="strip_checkout_flagcounter" name="strip_checkout_flagcounter" value="1">
-                    <label class="form-check-label" for="strip_checkout_flagcounter">Enabled</label>
-                  </div>
+                  <textarea class="form-control font-monospace" id="checkout_remove" name="checkout_remove" rows="4" placeholder="#chat-widget&#10;.visitor-counter&#10;widgets.example.com"></textarea>
                   <div class="form-text">
-                    Removes the flagcounter.com visitor-counter widget
-                    (the footer's div.visitors) from the checkout page's
-                    final HTML. Its remote image is blocked by the strict
-                    checkout img-src anyway, and PCI DSS SAQ A favours not
-                    loading third-party trackers on the payment page rather
-                    than allowlisting them. It still shows on every other
-                    page. Only touches routes listed in "Checkout routes".
+                    Theme widgets and third-party scripts to take out of
+                    the checkout page, one per line, instead of allowing
+                    their hosts in the strict checkout policy (a payment
+                    page should load as little third-party code as
+                    possible). They still show on every other page.
+                    <code>#some-id</code> removes the element with that id;
+                    <code>.some-class</code> removes every element with
+                    that class, including what is inside it; anything else
+                    is matched against the src or href of script, img,
+                    iframe, link, source, embed and object tags (for
+                    example a host name). Only touches routes listed in
+                    "Checkout routes".
                   </div>
                 </div>
               </div>

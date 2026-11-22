@@ -65,10 +65,27 @@ class Settings extends Base {
 
 		$settings['notify_throttle_seconds'] = (string) max(0, (int) $settings['notify_throttle_seconds']);
 
+		$invalid = [];
+		$entries = Csp::parseRemoveList($settings['checkout_remove'], $invalid);
+
+		if ($invalid) {
+			$errors[] = sprintf(__('Remove from checkout: these lines are not an #id, a .class or part of a URL: %s'), implode(', ', $invalid));
+		} else {
+			//store it tidied: one entry per line
+			$settings['checkout_remove'] = implode("\n", array_map(function ($entry) {
+				return ($entry[0] === 'id' ? '#' : ($entry[0] === 'class' ? '.' : '')) . $entry[1];
+			}, $entries));
+		}
+
 		if ($errors) {
 			$this->view->errors = $errors;
 
-			return $this->index();
+			$this->index();
+
+			//show what was typed, not the saved values, so nothing is lost
+			$this->view->set($settings);
+
+			return;
 		}
 
 		//full replace, same as the payment plugins' own save() — a field
