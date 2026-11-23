@@ -27,7 +27,7 @@ Category: other
 Url: https://github.com/Ezyweb-uk/vvveb-csp-manager-plugin
 Description: Centralized, route-aware Content-Security-Policy for the checkout page (strict) and the rest of the site (configurable, lax by default). Starts in report-only mode. Merges with any CSP header other plugins (e.g. payment gateway plugins) already queued, rather than overwriting them.
 Author: Ezyweb.uk
-Version: 0.4
+Version: 0.5
 Thumb: csp-manager.svg
 Author url: https://ezyweb.uk
 Settings: /admin/index.php?module=plugins/csp-manager/settings
@@ -164,25 +164,25 @@ class CspManager {
 		$stripCookieNotice = (bool) ($settings['strip_checkout_cookie_notice'] ?? true);
 		$checkoutRemove    = trim((string) ($settings['checkout_remove'] ?? ''));
 
-		if ($stripInline || $stripCookieNotice || $checkoutRemove !== '') {
-			ob_start(function ($html) use ($stripInline, $stripCookieNotice, $checkoutRemove, $settings) {
-				if ($stripInline) {
-					$html = Csp::stripKnownInlineHandlers($html);
+		//always buffered: the theme compatibility script (see
+		//Csp::addInlineCompat()) is decided from the final headers
+		ob_start(function ($html) use ($stripInline, $stripCookieNotice, $checkoutRemove, $settings) {
+			if ($stripInline) {
+				$html = Csp::stripKnownInlineHandlers($html);
+			}
+
+			if (Csp::isCurrentRouteCheckout($settings)) {
+				if ($stripCookieNotice) {
+					$html = Csp::stripCheckoutOnlyWidgets($html);
 				}
 
-				if (Csp::isCurrentRouteCheckout($settings)) {
-					if ($stripCookieNotice) {
-						$html = Csp::stripCheckoutOnlyWidgets($html);
-					}
-
-					if ($checkoutRemove !== '') {
-						$html = Csp::stripCheckoutElements($html, $checkoutRemove);
-					}
+				if ($checkoutRemove !== '') {
+					$html = Csp::stripCheckoutElements($html, $checkoutRemove);
 				}
+			}
 
-				return $html;
-			});
-		}
+			return Csp::addInlineCompat($html);
+		});
 	}
 
 	public function __construct() {

@@ -134,9 +134,11 @@
                     file): it removes the
                     onclick attributes, so on the stock Landing theme the
                     password eye, login/register and shipping-address
-                    toggles stop working. Off by default. The PayPal Smart
-                    Buttons plugin's checkout script keeps the Landing
-                    checkout working when its inline code is blocked.
+                    toggles stop working. Off by default. Leave it off for
+                    the stock Landing theme: when the enforced policy blocks
+                    inline code, CSP Manager adds a small script that keeps
+                    those controls (and the checkout region list) working,
+                    which needs the onclick attributes left in place.
                   </div>
                 </div>
               </div>

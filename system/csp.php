@@ -585,6 +585,109 @@ class Csp {
 		return $html;
 	}
 
+	/** The theme compatibility script (public/inline-compat.js) and its element id. */
+	const COMPAT_SCRIPT    = 'inline-compat.js';
+	const COMPAT_SCRIPT_ID = 'csp-manager-compat';
+
+	/** Ids of other plugins' copies of the same script (PayPal Smart Buttons 0.4+). */
+	private const OTHER_COMPAT_IDS = ['paypal-smart-buttons-compat'];
+
+	/**
+	 * Whether the browser will block inline code on this page: reads the
+	 * enforced Content-Security-Policy header(s) about to be sent (after
+	 * finalizeForCurrentRoute() merged everything), the way a browser does.
+	 * Inline <script> elements follow script-src-elem, then script-src, then
+	 * default-src; inline onclick="" handlers follow script-src-attr, then
+	 * script-src, then default-src. A source list blocks inline code unless
+	 * it has 'unsafe-inline' and no nonce or hash ('unsafe-inline' is ignored
+	 * when one is present). Report-Only headers never block.
+	 */
+	public static function inlineCodeBlocked(): bool {
+		foreach (headers_list() as $header) {
+			if (stripos($header, 'Content-Security-Policy:') !== 0) {
+				continue;
+			}
+
+			$directives = [];
+
+			foreach (explode(';', substr($header, strlen('Content-Security-Policy:'))) as $part) {
+				$tokens = preg_split('/\s+/', strtolower(trim($part)), -1, PREG_SPLIT_NO_EMPTY);
+
+				if ($tokens) {
+					$directives[array_shift($tokens)] ??= $tokens;
+				}
+			}
+
+			$elements = $directives['script-src-elem'] ?? $directives['script-src'] ?? $directives['default-src'] ?? null;
+			$handlers = $directives['script-src-attr'] ?? $directives['script-src'] ?? $directives['default-src'] ?? null;
+
+			if (self::sourcesBlockInline($elements) || self::sourcesBlockInline($handlers)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private static function sourcesBlockInline(?array $sources): bool {
+		if ($sources === null) {
+			return false; //no restriction
+		}
+
+		if (! in_array("'unsafe-inline'", $sources, true)) {
+			return true;
+		}
+
+		foreach ($sources as $source) {
+			if (preg_match("/^'(nonce-|sha256-|sha384-|sha512-|strict-dynamic')/", $source)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Adds the theme compatibility script before </body> when the page's
+	 * enforced policy blocks inline code (see inlineCodeBlocked()), unless the
+	 * page already has a copy (PayPal Smart Buttons 0.4 loads its own; two
+	 * copies would run every toggle twice). The Region list URL is read from
+	 * the theme's own inline `let regionsUrl = '...'` script, which is still
+	 * in the HTML even though the browser won't run it.
+	 */
+	public static function addInlineCompat(string $html): string {
+		if (! self::isHtmlResponse() || ! self::inlineCodeBlocked()) {
+			return $html;
+		}
+
+		foreach (array_merge([self::COMPAT_SCRIPT_ID], self::OTHER_COMPAT_IDS) as $id) {
+			if (stripos($html, 'id="' . $id . '"') !== false) {
+				return $html;
+			}
+		}
+
+		$body = strripos($html, '</body>');
+
+		if ($body === false) {
+			return $html;
+		}
+
+		$regionsUrl = '';
+
+		if (preg_match('/\blet\s+regionsUrl\s*=\s*([\'"])(.*?)\1/s', $html, $m)) {
+			$regionsUrl = str_replace('\\/', '/', $m[2]);
+		}
+
+		$base = defined('PUBLIC_PATH') ? PUBLIC_PATH : '/';
+		$file = dirname(__DIR__) . '/public/' . self::COMPAT_SCRIPT;
+		$tag  = '<script id="' . self::COMPAT_SCRIPT_ID . '" src="' . $base . 'plugins/csp-manager/' . self::COMPAT_SCRIPT
+			. '?v=' . (int) @filemtime($file) . '"'
+			. ($regionsUrl !== '' ? ' data-regions-url="' . htmlspecialchars($regionsUrl, ENT_QUOTES) . '"' : '')
+			. '></script>';
+
+		return substr($html, 0, $body) . $tag . "\n" . substr($html, $body);
+	}
+
 	/** Tags a URL entry in "Remove from checkout" can match (by src or href). */
 	private const REMOVE_URL_TAGS = ['script', 'img', 'iframe', 'link', 'source', 'embed', 'object'];
 

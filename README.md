@@ -29,9 +29,18 @@ payment plugin has already queued instead of overwriting it.
   the plugin (`checkout-rules.json`), with the `application/speculationrules+json` type browsers require
   (a plain `.json` file is served as `application/json` and silently ignored), so no web server configuration
   is needed.
+- **Theme compatibility script:** a strict policy also blocks the theme's own inline code. On the stock
+  Landing theme that stops the checkout's Region list reloading when the country changes (so the shipping
+  methods and totals aren't recalculated for the new address), "ship to a different address", the login,
+  register and password-eye toggles, and the scroll animations. On every page where the enforced policy
+  blocks inline code, CSP Manager adds `inline-compat.js`, which does the same work from an allowed file. It is
+  decided from the final policy header, as the browser reads it (no `'unsafe-inline'`, or a nonce or hash), so
+  it is added on the checkout in enforce mode, on other pages only if you remove `'unsafe-inline'` from the
+  Default profile, and never in report-only mode, where nothing is blocked.
 - **Strip known theme onclick handlers** (off by default): removes Landing's `onclick` attributes for the
   password eye and the login/register/shipping-address toggles from every page. Only turn it on if your theme
-  has its own click listeners for those controls; on the stock Landing theme they stop working.
+  has its own click listeners for those controls in an external script file; on the stock Landing theme it
+  stops them working, as the compatibility script needs the attributes.
 
 ## Current scope: checkout support with PayPal Smart Buttons only
 
@@ -41,8 +50,11 @@ queuing its own CSP header (with its hosts and a nonce for any inline script) be
 
 At the moment only the **[PayPal Smart Buttons plugin](https://github.com/Ezyweb-uk/vvveb-paypal-smart-buttons-plugin)**
 (0.4 or later) does this. Its "Checkout security policy" setting, on *Automatic*, sends PayPal's
-sources whenever CSP Manager is active, and its compatibility script keeps the Landing theme's checkout
-working (region list, shipping address and login toggles) when CSP Manager enforces the policy.
+sources whenever CSP Manager is active.
+
+Shipping plugins need nothing allowed, but they depend on the checkout's Region list and shipping refresh,
+which the compatibility script keeps working (for example Ezyweb's
+[Order Value Shipping](https://github.com/Ezyweb-uk/vvveb-order-value-shipping-plugin)).
 
 With any other payment method (Vvveb's bundled payment plugin, card gateways and so on), keep CSP Manager in
 **report-only** mode on the checkout, or add the gateway's hosts to the Checkout profile fields yourself, or
@@ -121,7 +133,8 @@ merchant meet the criterion and stay within the reduced scope of SAQ A, where th
 
 - Vvveb 1.0.9.0 or later.
 - Front end: tested with the Landing theme (Oct 2026).
-- For an enforced checkout policy: the PayPal Smart Buttons plugin 0.4 or later (see "Current scope").
+- For an enforced checkout policy with PayPal: the PayPal Smart Buttons plugin 0.4 or later (0.5 recommended,
+  see "Current scope").
 
 ## Installation
 
@@ -136,6 +149,10 @@ Manual install: copy the files to `plugins/csp-manager/`, then activate the plug
 
 ## Version history
 
+- **0.5** (2026-11-23): the theme compatibility script moved here from PayPal Smart Buttons, so the Landing
+  checkout keeps working (region list, shipping recalculation, address and login toggles) whenever CSP
+  Manager enforces, with or without PayPal Smart Buttons. Added only where the final enforced policy blocks
+  inline code, and only once per page (skipped if PayPal Smart Buttons 0.4 already added its copy).
 - **0.4** (2026-11-22): "Strip known theme onclick handlers" is off by default for new installs (existing
   saved settings are kept), because it breaks the stock Landing theme's password eye and checkout toggles.
   The "Strip Flag Counter on checkout" switch, which only knew one theme's widget, is replaced by the general
