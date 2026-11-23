@@ -49,7 +49,7 @@ payment gateway needs. CSP Manager doesn't know those itself: each payment plugi
 queuing its own CSP header (with its hosts and a nonce for any inline script) before CSP Manager merges it.
 
 At the moment only the **[PayPal Smart Buttons plugin](https://github.com/Ezyweb-uk/vvveb-paypal-smart-buttons-plugin)**
-(0.4 or later) does this. Its "Checkout security policy" setting, on *Automatic*, sends PayPal's
+(0.5) does this. Its "Checkout security policy" setting, on *Automatic*, sends PayPal's
 sources whenever CSP Manager is active.
 
 Shipping plugins need nothing allowed, but they depend on the checkout's Region list and shipping refresh,
@@ -133,8 +133,7 @@ merchant meet the criterion and stay within the reduced scope of SAQ A, where th
 
 - Vvveb 1.0.9.0 or later.
 - Front end: tested with the Landing theme (Oct 2026).
-- For an enforced checkout policy with PayPal: the PayPal Smart Buttons plugin 0.4 or later (0.5 recommended,
-  see "Current scope").
+- For an enforced checkout policy with PayPal: the PayPal Smart Buttons plugin 0.5 (see "Current scope").
 
 ## Installation
 
@@ -149,21 +148,9 @@ Manual install: copy the files to `plugins/csp-manager/`, then activate the plug
 
 ## Version history
 
-- **0.5** (2026-11-23): the theme compatibility script moved here from PayPal Smart Buttons, so the Landing
-  checkout keeps working (region list, shipping recalculation, address and login toggles) whenever CSP
-  Manager enforces, with or without PayPal Smart Buttons. Added only where the final enforced policy blocks
-  inline code, and only once per page (skipped if PayPal Smart Buttons 0.4 already added its copy).
-- **0.4** (2026-11-22): "Strip known theme onclick handlers" is off by default for new installs (existing
-  saved settings are kept), because it breaks the stock Landing theme's password eye and checkout toggles.
-  The "Strip Flag Counter on checkout" switch, which only knew one theme's widget, is replaced by the general
-  "Remove from checkout" list: if you used it, add that widget's wrapper class (or its host name) to the list.
-  Speculation rules bundled with the plugin and served by its own route with the required MIME type (the
-  header used to point at `/themes/landing/js/checkout-rules.json`, which stock Landing doesn't ship and which
-  needed web server configuration for its type); a theme's own `js/checkout-rules.json` still takes
-  priority. Copyright notice and LICENSE added.
-- **0.3**: removes all Cookie Notice scripts and styles (`cookie-notice*` ids) from the checkout.
-- **0.2**: Vvveb 1.0.9.0 admin settings page; "Strip Flag Counter on checkout" switch.
-- **0.1**: route-aware checkout and default profiles, merging, report-only/enforce, reports and email.
+- **0.5** (2026-11-23): current release, tested with Vvveb 1.0.9.0 and the Oct 2026 Landing theme. Earlier
+  versions were development releases.
+
 
 ## Sources
 
