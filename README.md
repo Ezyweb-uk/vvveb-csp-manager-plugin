@@ -42,6 +42,16 @@ payment plugin has already queued instead of overwriting it.
   has its own click listeners for those controls in an external script file; on the stock Landing theme it
   stops them working, as the compatibility script needs the attributes.
 
+## Settings
+
+**Plugins › CSP Manager › Settings**, shown in report-only mode with the default policies.
+
+![CSP Manager settings: mode, report URI, checkout routes, element stripping and violation notifications](docs/screenshots/settings.png)
+
+The checkout policy (strict) and the default policy for the rest of the site, one field per directive:
+
+![CSP Manager checkout and default policy directives](docs/screenshots/policies.png)
+
 ## Current scope: checkout support with PayPal Smart Buttons only
 
 A strict checkout policy only works if it allows exactly the scripts, frames and connections the chosen
